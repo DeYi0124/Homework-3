@@ -69,13 +69,41 @@ class MyPortfolio:
         """
         TODO: Complete Task 4 Below
         """
-
+        uniform_weight = 1 / len(assets)
+        self.portfolio_weights[assets] = uniform_weight
+        index_dates = self.portfolio_weights.index
+        total_days = len(index_dates)
+        offset = self.lookback // 5
+        for day_idx in range(offset, total_days):
+            window_length = min(self.lookback, day_idx)
+            historical_returns = self.returns[assets].iloc[day_idx - window_length: day_idx].copy()
+            if day_idx == offset or day_idx % 10 == 0:
+                weight_vector = self.optimize_weights(historical_returns, allow_short=False)
+                weight_vector /= weight_vector.sum()
+            self.portfolio_weights.loc[index_dates[day_idx], assets] = weight_vector
         """
         TODO: Complete Task 4 Above
         """
 
         self.portfolio_weights.ffill(inplace=True)
         self.portfolio_weights.fillna(0, inplace=True)
+
+    def optimize_weights(self, return_data, allow_short=True):
+        expected_return = return_data.mean()
+        risk_matrix = return_data.cov()
+
+        # Pseudo-inverse to handle potential singular covariance matrices
+        inv_cov = np.linalg.pinv(risk_matrix)
+        unity_vector = np.ones(len(expected_return))
+
+        raw_weights = np.dot(inv_cov, unity_vector)
+        normalized_weights = raw_weights / np.dot(unity_vector, raw_weights)
+
+        if allow_short:
+            normalized_weights[normalized_weights < 0] = 0
+
+        final_weights = normalized_weights / normalized_weights.sum()
+        return final_weights
 
     def calculate_portfolio_returns(self):
         # Ensure weights are calculated
